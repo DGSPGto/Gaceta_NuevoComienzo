@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="emerald">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Revista — Flipbook</title>
+
+  <!-- Tailwind + DaisyUI (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* --- Flipbook core --- */
+    .flipbook {
+      perspective: 2000px;
+      transform-style: preserve-3d;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .sheet {
+      position: relative;
+      width: var(--page-w, 820px);
+      height: var(--page-h, 1160px);
+      transform-style: preserve-3d;
+    }
+    .page {
+      position: absolute;
+      top: 0; left: 0;
+      width: 50%;
+      height: 100%;
+      overflow: hidden;
+      backface-visibility: hidden;
+      transform-origin: left center;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+      background: #fff;
+    }
+    .page.right {
+      left: 50%;
+      transform-origin: right center;
+    }
+    .page img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block;
+    }
+
+    /* Estado de vuelta */
+    .sheet.turning .page.left {
+      animation: turnLeft .7s ease forwards;
+    }
+    .sheet.turning .page.right {
+      animation: turnRight .7s ease forwards;
+    }
+    @keyframes turnLeft {
+      0% { transform: rotateY(0deg); z-index: 2; }
+      100% { transform: rotateY(-180deg); z-index: 1; }
+    }
+    @keyframes turnRight {
+      0% { transform: rotateY(0deg); z-index: 2; }
+      100% { transform: rotateY(180deg); z-index: 1; }
+    }
+
+    /* Estados reposo (páginas ya dadas vuelta) */
+    .flipped .page.left   { transform: rotateY(-180deg); }
+    .flipped .page.right  { transform: rotateY(180deg); }
+
+    /* Zoom */
+    .zoomable {
+      transition: transform .25s ease;
+      transform-origin: center center;
+    }
+
+    /* Scroll thumbs */
+    .thumb {
+      aspect-ratio: 3/4;
+      object-fit: cover;
+    }
+
+    /* Responsivo: reduce base */
+    @media (max-width: 1024px) {
+      :root { --page-w: 680px; --page-h: 960px; }
+    }
+    @media (max-width: 820px) {
+      :root { --page-w: 92vw; --page-h: calc(92vw * 1.414); }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-base-200">
+
+  <header class="navbar bg-base-100 shadow-sm sticky top-0 z-50">
+    <div class="flex-1">
+      <a class="btn btn-ghost text-xl font-bold">Gaceta DGSP — Flipbook</a>
+    </div>
+    <div class="flex-none gap-2 pr-2">
+      <button id="btnPrev" class="btn btn-sm">←</button>
+      <button id="btnNext" class="btn btn-sm">→</button>
+      <div class="divider divider-horizontal"></div>
+      <button id="btnZoomOut" class="btn btn-sm">−</button>
+      <button id="btnZoomIn"  class="btn btn-sm">+</button>
+      <button id="btnResetZoom" class="btn btn-sm">100%</button>
+      <div class="divider divider-horizontal"></div>
+      <button id="btnFullscreen" class="btn btn-sm">⤢</button>
+      <label class="label cursor-pointer px-2">
+        <span class="label-text mr-2">Doble página</span>
+        <input id="chkSpread" type="checkbox" class="toggle toggle-sm" checked />
+      </label>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 lg:p-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[200px,1fr] gap-4">
+      <!-- Sidebar: miniaturas -->
+      <aside class="card bg-base-100 shadow-md h-[60vh] lg:h-[86vh]">
+        <div class="card-body p-3">
+          <h2 class="card-title text-sm mb-2">Páginas</h2>
+          <div id="thumbs" class="overflow-auto h-full grid grid-cols-3 lg:grid-cols-1 gap-2 pr-1"></div>
+        </div>
+      </aside>
+
+      <!-- Flipbook -->
+      <section class="card bg-base-100 shadow-lg">
+        <div class="card-body p-2 lg:p-4">
+          <div id="stage" class="w-full flex justify-center">
+            <div id="book" class="flipbook zoomable"></div>
+          </div>
+          <p id="caption" class="text-center text-xs opacity-70 mt-2">Clic / arrastra para pasar de página. Teclas ← → también funcionan.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    /* ===========================
+       C O N F I G U R A C I Ó N
+       =========================== */
+
+    // 1) Reemplaza estas URLs con tus imágenes (ordenadas)
+    //    Ejemplo: /revista/01.jpg, 02.jpg, etc.
+    const PAGES = [
+      "https://images.unsplash.com/photo-1520975916090-3105956dac38?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1557800636-894a64c1696f?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1511203466129-824e631920d4?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1080&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1542623024-a797a755b8bd?q=80&w=1080&auto=format&fit=crop"
+    ];
+
+    // 2) Opciones
+    const OPTIONS = {
+      preloadAhead: 2,   // cuántas páginas precargar hacia adelante
+      spread: true,      // doble página (2 visibles)
+      minZoom: 0.8,
+      maxZoom: 2.2,
+      zoomStep: 0.15
+    };
+
+    /* ===========================
+         L Ó G I C A   F L I P
+       =========================== */
+
+    const $book = document.getElementById('book');
+    const $thumbs = document.getElementById('thumbs');
+    const $chkSpread = document.getElementById('chkSpread');
+
+    let state = {
+      page: 0,        // índice base 0
+      zoom: 1
+    };
+
+    function createSheet(indexLeft, indexRight) {
+      const sheet = document.createElement('div');
+      sheet.className = 'sheet';
+
+      const left = document.createElement('div');
+      left.className = 'page left';
+      const right = document.createElement('div');
+      right.className = 'page right';
+
+      const imgL = document.createElement('img');
+      const imgR = document.createElement('img');
+
+      if (indexLeft >= 0 && PAGES[indexLeft]) {
+        imgL.loading = 'lazy';
+        imgL.src = PAGES[indexLeft];
+        imgL.alt = `Página ${indexLeft + 1}`;
+      } else {
+        imgL.style.background = '#f5f5f5';
+      }
+
+      if (indexRight >= 0 && PAGES[indexRight]) {
+        imgR.loading = 'lazy';
+        imgR.src = PAGES[indexRight];
+        imgR.alt = `Página ${indexRight + 1}`;
+      } else {
+        imgR.style.background = '#f5f5f5';
+      }
+
+      left.appendChild(imgL);
+      right.appendChild(imgR);
+      sheet.appendChild(left);
+      sheet.appendChild(right);
+      return sheet;
+    }
+
+    function render() {
+      $book.innerHTML = '';
+      $book.style.setProperty('--page-w', getComputedStyle(document.documentElement).getPropertyValue('--page-w'));
+      $book.style.setProperty('--page-h', getComputedStyle(document.documentElement).getPropertyValue('--page-h'));
+      $book.classList.add('relative');
+
+      let i = state.page;
+      if (OPTIONS.spread) {
+        // asegúrate de que sea par (página izquierda)
+        i = Math.max(0, i - (i % 2));
+        const sheet = createSheet(i, i + 1);
+        $book.appendChild(sheet);
+      } else {
+        // una sola página, usamos el lado derecho
+        const sheet = createSheet(-1, i);
+        $book.appendChild(sheet);
+      }
+
+      // Precarga simple
+      for (let a = 1; a <= OPTIONS.preloadAhead; a++) {
+        const idx = state.page + a;
+        if (PAGES[idx]) new Image().src = PAGES[idx];
+      }
+
+      updateThumbsSelection();
+    }
+
+    function nextPage() {
+      if (OPTIONS.spread) {
+        if (state.page < PAGES.length - 2) state.page += 2;
+      } else {
+        if (state.page < PAGES.length - 1) state.page += 1;
+      }
+      animateTurn(true);
+      render();
+    }
+    function prevPage() {
+      if (OPTIONS.spread) {
+        if (state.page > 0) state.page -= 2;
+      } else {
+        if (state.page > 0) state.page -= 1;
+      }
+      animateTurn(false);
+      render();
+    }
+
+    function animateTurn(toRight=true) {
+      const sheet = $book.querySelector('.sheet');
+      if (!sheet) return;
+      sheet.classList.remove('turning','flipped');
+      void sheet.offsetWidth; // reflow
+      sheet.classList.add('turning');
+      // marca flipped al final para que se vea la cara opuesta
+      setTimeout(()=> sheet.classList.add('flipped'), 10);
+      // limpia animación
+      setTimeout(()=> sheet.classList.remove('turning'), 750);
+    }
+
+    // Zoom
+    const $zoomable = document.querySelector('.zoomable');
+    function applyZoom() {
+      $book.style.transform = `scale(${state.zoom})`;
+    }
+    function zoomIn()  { state.zoom = Math.min(OPTIONS.maxZoom, state.zoom + OPTIONS.zoomStep); applyZoom(); }
+    function zoomOut() { state.zoom = Math.max(OPTIONS.minZoom, state.zoom - OPTIONS.zoomStep); applyZoom(); }
+    function zoomReset(){ state.zoom = 1; applyZoom(); }
+
+    // Fullscreen
+    function toggleFull() {
+      const elem = document.documentElement;
+      if (!document.fullscreenElement) elem.requestFullscreen();
+      else document.exitFullscreen();
+      setTimeout(()=>applyZoom(),100);
+    }
+
+    // Thumbs
+    function buildThumbs() {
+      $thumbs.innerHTML = '';
+      PAGES.forEach((src, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-ghost p-0 overflow-hidden border border-base-300 hover:border-primary rounded-lg';
+        const img = document.createElement('img');
+        img.src = src; img.alt = `Miniatura ${i+1}`;
+        img.className = 'thumb w-[90px] lg:w-full';
+        btn.appendChild(img);
+        btn.onclick = () => {
+          state.page = i;
+          render();
+        };
+        $thumbs.appendChild(btn);
+      });
+    }
+    function updateThumbsSelection() {
+      [...$thumbs.children].forEach((b, i) => {
+        const active = (i === state.page) || (OPTIONS.spread && (i === state.page || i === state.page+1));
+        b.classList.toggle('ring', active);
+        b.classList.toggle('ring-primary', active);
+      });
+    }
+
+    // Gestos y controles
+    function setupControls() {
+      document.getElementById('btnNext').onclick = nextPage;
+      document.getElementById('btnPrev').onclick = prevPage;
+      document.getElementById('btnZoomIn').onclick = zoomIn;
+      document.getElementById('btnZoomOut').onclick = zoomOut;
+      document.getElementById('btnResetZoom').onclick = zoomReset;
+      document.getElementById('btnFullscreen').onclick = toggleFull;
+      document.getElementById('chkSpread').onchange = (e)=>{
+        OPTIONS.spread = e.target.checked;
+        if (OPTIONS.spread && state.page % 2 !== 0) state.page--; // alinear a par
+        render();
+      };
+
+      // click en libro → avanzar
+      $book.addEventListener('click', (ev)=>{
+        const rect = $book.getBoundingClientRect();
+        const x = ev.clientX - rect.left;
+        if (x > rect.width/2) nextPage(); else prevPage();
+      });
+
+      // teclado
+      window.addEventListener('keydown', (e)=>{
+        if (['ArrowRight','PageDown',' '].includes(e.key)) nextPage();
+        if (['ArrowLeft','PageUp','Backspace'].includes(e.key)) prevPage();
+        if (e.key === '+') zoomIn();
+        if (e.key === '-') zoomOut();
+        if (e.key.toLowerCase() === 'f') toggleFull();
+        if (e.key === '0') zoomReset();
+      });
+
+      // swipe móvil
+      let sx=0, sy=0;
+      $book.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
+      $book.addEventListener('touchend', e => {
+        const dx = (e.changedTouches[0].clientX - sx);
+        const dy = Math.abs(e.changedTouches[0].clientY - sy);
+        if (Math.abs(dx) > 30 && dy < 50) { dx < 0 ? nextPage() : prevPage(); }
+      }, {passive:true});
+    }
+
+    // Init
+    buildThumbs();
+    setupControls();
+    render();
+  </script>
+</body>
+</html>
