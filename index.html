@@ -13,6 +13,15 @@
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 
   <style>
+    :root{
+      --brand-1:#0b2441;
+      --brand-2:#1e3e6b;
+      --brand-3:#0e8f8b;
+      --ink:#0f172a;
+      --border: 1px solid rgba(15,23,42,.10);
+      --ring: 0 0 0 2px rgba(14,143,139,.25);
+    }
+
     /* ===== LOADER ===== */
     #topLoader{position:fixed;inset:0 auto auto 0;height:4px;width:0%;background:linear-gradient(90deg,#10b981,#22c55e,#06b6d4);box-shadow:0 0 14px rgba(16,185,129,.6);z-index:9999;transition:width .3s ease}
     #loginLoader{position:fixed;inset:0;background:radial-gradient(1200px 800px at 50% 40%,rgba(12,18,28,.95),rgba(5,10,20,.98) 60%,rgba(0,0,0,1));display:grid;place-items:center;z-index:9998}
@@ -22,22 +31,59 @@
     @keyframes orb{to{transform:rotate(360deg)}}
     .loader{width:56px;height:56px;border-radius:50%;border:3px solid #1f2937;border-top-color:#10b981;margin:0 auto;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .goldman-text{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;letter-spacing:.3px}
+    .goldman-text{font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;letter-spacing:.3px}
 
     /* ===== Flipbook (SIEMPRE 1 página) ===== */
     .flipbook{perspective:1600px;transform-style:preserve-3d;user-select:none;-webkit-tap-highlight-color:transparent}
     .sheet{position:relative;width:var(--sheet-w,820px);height:var(--sheet-h,1160px);transform-style:preserve-3d}
-    .page{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;backface-visibility:hidden;box-shadow:0 10px 30px rgba(0,0,0,.22);background:#fff;transform-origin:right center}
+    .page{position:absolute;top:0;left:0;width:100%;height:100%;overflow:hidden;backface-visibility:hidden;box-shadow:0 10px 30px rgba(0,0,0,.10);background:#fff;transform-origin:right center;border-radius:14px}
     .page img{width:100%;height:100%;object-fit:contain;display:block;background:#fff}
     .sheet.turning .page{animation:turnSingle .5s ease forwards}
     @keyframes turnSingle{0%{transform:rotateY(0);z-index:2}100%{transform:rotateY(180deg);z-index:1}}
-    .zoomable{transition:transform .18s ease;transform-origin:center}
-    .thumb{aspect-ratio:3/4;object-fit:cover}
-
-    /* ===== UI ===== */
-    .brand-gradient{background:linear-gradient(90deg,#0b2441 0%,#1e3e6b 50%,#0e8f8b 100%)}
-    .soft-card{border:1px solid rgba(15,23,42,.08)}
+    .zoomable{transition:transform .18s ease, filter .2s ease;transform-origin:center}
+    .thumb{aspect-ratio:3/4;object-fit:cover;border-radius:10px}
     #stage{min-height:58vh}
+
+    /* ===== Brand surfaces ===== */
+    .brand-gradient{
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,.08), transparent 60%),
+        linear-gradient(90deg,var(--brand-1) 0%, var(--brand-2) 50%, var(--brand-3) 100%);
+    }
+    .glass-bar{
+      background:rgba(255,255,255,.7);
+      -webkit-backdrop-filter:saturate(1.4) blur(10px);
+      backdrop-filter:saturate(1.4) blur(10px);
+      border-bottom: var(--border);
+    }
+    .ui-card{
+      border: var(--border);
+      border-radius:16px;
+      box-shadow:0 8px 24px rgba(2,6,23,.06);
+      overflow: hidden; /* evita que se “salgan” miniaturas */
+    }
+    .ui-title{ letter-spacing:.2px; color:var(--ink); }
+    .ui-pill{
+      border: var(--border);
+      border-radius:9999px;
+      background:rgba(255,255,255,.85);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+      box-shadow:0 8px 24px rgba(2,6,23,.05);
+    }
+    .ui-ghost{ transition:transform .12s ease, box-shadow .12s ease; }
+    .ui-ghost:active { transform:translateY(1px); }
+    .ui-ghost:focus-visible{ box-shadow: var(--ring); outline: none; }
+
+    /* ===== Cookie bar ===== */
+    .cookie-bar{
+      position:fixed; inset:auto 0 0 0; z-index:50;
+      border-top: var(--border);
+      background:rgba(255,255,255,.92);
+      -webkit-backdrop-filter:saturate(1.3) blur(6px);
+      backdrop-filter:saturate(1.3) blur(6px);
+      box-shadow:0 -10px 30px rgba(2,6,23,.06);
+    }
 
     /* ===== Mobile ===== */
     @media (max-width: 1023px){
@@ -50,8 +96,10 @@
   </style>
 </head>
 <body class="min-h-screen bg-base-200">
-  <!-- LOADER -->
+  <!-- LOADER SUPERIOR -->
   <div id="topLoader" hidden></div>
+
+  <!-- LOADER PANTALLA COMPLETA -->
   <div id="loginLoader" aria-hidden="true">
     <div class="text-center">
       <div class="relative w-60 h-60 mx-auto mb-6">
@@ -67,62 +115,81 @@
   </div>
 
   <!-- NAVBAR -->
-  <header class="navbar bg-base-100 shadow-sm sticky top-0 z-40">
-    <div class="flex-1">
-      <a class="btn btn-ghost normal-case text-xl font-bold">Gaceta Nuevo Comienzo — Revista Digital</a>
-    </div>
-    <div class="flex-none gap-2 pr-2">
-      <button id="thumbToggle" class="btn btn-sm hidden">Miniaturas</button>
-      <button id="btnPrev" class="btn btn-sm">←</button>
-      <button id="btnNext" class="btn btn-sm">→</button>
-      <div class="divider divider-horizontal hidden md:block"></div>
-      <button id="btnZoomOut" class="btn btn-sm hidden md:inline-flex">−</button>
-      <button id="btnZoomIn"  class="btn btn-sm hidden md:inline-flex">+</button>
-      <button id="btnResetZoom" class="btn btn-sm hidden md:inline-flex">100%</button>
-      <div class="divider divider-horizontal hidden md:block"></div>
-      <button id="btnFullscreen" class="btn btn-sm hidden md:inline-flex">⤢</button>
-    </div>
+  <header class="glass-bar sticky top-0 z-40">
+    <nav class="max-w-7xl mx-auto px-3 md:px-4">
+      <div class="flex items-center gap-2 py-2.5">
+        <a class="flex items-center gap-2 ui-ghost btn btn-ghost px-2 md:px-3">
+          <img src="img/logobrand5.png" alt="DGSP" class="h-7 w-7 rounded-md hidden sm:block">
+          <span class="text-base md:text-xl font-semibold ui-title">Gaceta Nuevo Comienzo</span>
+        </a>
+
+        <span class="hidden md:inline-block ml-2 px-2.5 py-1 rounded-full text-xs font-medium text-white"
+              style="background: linear-gradient(90deg,var(--brand-2),var(--brand-3)); box-shadow:0 6px 16px rgba(14,143,139,.25);">
+          Revista Digital
+        </span>
+
+        <div class="ml-auto ui-pill flex items-center gap-1 p-1">
+          <button id="thumbToggle" class="btn btn-sm btn-ghost ui-ghost hidden">Miniaturas</button>
+          <button id="btnPrev" class="btn btn-sm btn-ghost ui-ghost" title="Anterior">←</button>
+          <button id="btnNext" class="btn btn-sm btn-ghost ui-ghost" title="Siguiente">→</button>
+
+          <div class="hidden md:flex items-center">
+            <span class="mx-1 h-6 w-px bg-base-300"></span>
+            <button id="btnZoomOut" class="btn btn-sm btn-ghost ui-ghost" title="Zoom −">−</button>
+            <button id="btnZoomIn"  class="btn btn-sm btn-ghost ui-ghost" title="Zoom +">+</button>
+            <button id="btnResetZoom" class="btn btn-sm btn-ghost ui-ghost" title="Restablecer">100%</button>
+            <span class="mx-1 h-6 w-px bg-base-300"></span>
+            <button id="btnFullscreen" class="btn btn-sm btn-ghost ui-ghost" title="Pantalla completa">⤢</button>
+          </div>
+        </div>
+      </div>
+    </nav>
   </header>
 
   <!-- HERO -->
   <section class="brand-gradient text-white">
-    <div class="max-w-7xl mx-auto px-4 py-3 md:py-5 flex items-center justify-between">
+    <div class="max-w-7xl mx-auto px-4 py-4 md:py-6 flex items-center justify-between">
       <div>
-        <h1 class="text-base md:text-2xl font-semibold">Septiembre 2025 · Edición Especial</h1>
+        <h1 class="text-base md:text-2xl font-semibold tracking-tight">Septiembre 2025 · Edición Especial</h1>
         <p class="opacity-90 text-xs md:text-base">Historias reales de reinserción, proyectos que transforman y datos que inspiran.</p>
       </div>
-      <img src="img/logobrand5.png" alt="DGSP" class="hidden md:block h-10 opacity-90">
+      <div class="hidden md:flex items-center gap-3">
+        <img src="img/logobrand5.png" alt="DGSP" class="h-12 opacity-90">
+      </div>
     </div>
   </section>
 
   <!-- LAYOUT -->
-  <main class="max-w-7xl mx-auto p-3 lg:p-6">
+  <main class="max-w-7xl mx-auto p-3 lg:p-6 pb-28">
     <div class="grid grid-cols-1 lg:grid-cols-[260px,1fr] gap-4">
       <!-- Sidebar -->
-      <aside id="sidebar" class="card bg-base-100 soft-card shadow-sm h-[60vh] lg:h-[86vh]">
+      <aside id="sidebar" class="card bg-base-100 ui-card h-[60vh] lg:h-[86vh]">
         <div class="card-body p-3">
-          <h2 class="card-title text-sm mb-3">Revista</h2>
+          <h2 class="card-title text-sm mb-2 ui-title">Revista</h2>
+
           <div class="join w-full mb-2">
-            <a id="btnDownloadPdf" class="btn btn-primary btn-sm join-item" download>Descargar PDF</a>
-            <a id="btnOpenPdf" class="btn btn-outline btn-sm join-item" target="_blank" rel="noopener">Abrir PDF</a>
+            <a id="btnDownloadPdf" class="btn btn-primary btn-sm join-item ui-ghost" download>Descargar PDF</a>
+            <a id="btnOpenPdf" class="btn btn-outline btn-sm join-item ui-ghost" target="_blank" rel="noopener">Abrir PDF</a>
           </div>
-          <div class="text-xs opacity-70 mb-2">
-            <span id="metaPages">Páginas: —</span> ·
-            <span id="metaWeight">Peso aprox.: —</span>
+
+          <div class="text-xs opacity-70 mb-2 flex items-center gap-3">
+            <span id="metaPages" class="px-2 py-1 rounded-full bg-base-200/70">Páginas: —</span>
+            <span id="metaWeight" class="px-2 py-1 rounded-full bg-base-200/70">Peso aprox.: —</span>
           </div>
+
           <div class="divider my-2"></div>
-          <h3 class="text-xs font-medium mb-2">Miniaturas</h3>
+          <h3 class="text-xs font-medium mb-2 ui-title">Miniaturas</h3>
           <div id="thumbs" class="overflow-auto h-full grid grid-cols-3 lg:grid-cols-1 gap-2 pr-1"></div>
         </div>
       </aside>
 
       <!-- Flipbook -->
-      <section class="card bg-base-100 soft-card shadow-sm">
+      <section class="card bg-base-100 ui-card">
         <div class="card-body p-2 md:p-4">
           <div id="stage" class="w-full flex justify-center">
             <div id="book" class="flipbook zoomable"></div>
           </div>
-          <div class="mt-3 flex flex-col md:flex-row md:items-center md:justify-between text-xs opacity-70 gap-2">
+          <div class="mt-3 flex flex-col md:flex-row md:items-center md:justify-between text-xs opacity-80 gap-2">
             <p id="caption" class="text-center md:text-left">Toca/arrastra o usa ← → para pasar página.</p>
             <p id="status" class="text-center md:text-right">Listo</p>
           </div>
@@ -133,35 +200,85 @@
 
   <!-- BOTÓN FLOTANTE MÓVIL: DESCARGAR PDF -->
   <a id="btnDownloadMobile"
-     class="btn btn-primary md:hidden fixed right-4 bottom-20 shadow-lg z-40"
+     class="btn btn-primary md:hidden fixed right-4 bottom-24 shadow-lg z-40"
      href="#"
      download>
      Descargar PDF
   </a>
 
-  <!-- FOOTER -->
-  <footer class="footer bg-base-100 text-base-content border-t mt-6">
-    <div class="max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-      <div>
-        <h4 class="font-semibold">Dirección General del Sistema Penitenciario</h4>
+  <!-- COOKIE / PRIVACY BAR -->
+  <div id="cookieBar" class="cookie-bar hidden">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col md:flex-row items-start md:items-center gap-3">
+      <p class="text-sm leading-snug">
+        Usamos cookies para mejorar tu experiencia. Al continuar aceptas nuestro
+        <a href="#" id="openPrivacy1" class="link link-primary">Aviso de Privacidad</a> y
+        <a href="#" id="openCookies" class="link link-primary">Política de Cookies</a>.
+      </p>
+      <div class="ml-0 md:ml-auto flex gap-2">
+        <button id="cookieDecline" class="btn btn-sm btn-ghost">Rechazar</button>
+        <button id="cookieAccept" class="btn btn-sm btn-primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER (sobrio y UI) -->
+  <footer class="bg-base-100" style="border-top: var(--border);">
+    <div class="max-w-7xl mx-auto w-full px-4 py-8 grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div class="md:col-span-6">
+        <div class="flex items-center gap-3 mb-2">
+          <img src="img/logobrand5.png" alt="DGSP" class="h-8 w-8 rounded-md">
+          <h4 class="font-semibold ui-title">Dirección General del Sistema Penitenciario</h4>
+        </div>
         <p class="text-sm opacity-75">Dirección de Tecnologías y Control Penitenciario. Secretaría de Seguridad y Paz.</p>
       </div>
-      <div class="text-sm opacity-75">
-        <a href="#" class="link link-hover">Aviso de privacidad</a><br>
-        <a href="#" class="link link-hover">Términos de uso</a>
+
+      <div class="md:col-span-3 text-sm">
+        <h5 class="font-semibold mb-2">Institucional</h5>
+        <ul class="space-y-1">
+          <li><a href="#" id="openPrivacy2" class="link link-hover">Aviso de privacidad</a></li>
+          <li><a href="#" id="openCookies2" class="link link-hover">Política de cookies</a></li>
+          <li><a href="#" class="link link-hover">Términos de uso</a></li>
+        </ul>
       </div>
-      <div class="text-sm opacity-75">
-        <a href="#" class="link link-hover">Sitio oficial</a><br>
-        <a href="#" class="link link-hover">Contacto</a>
+
+      <div class="md:col-span-3 text-sm">
+        <h5 class="font-semibold mb-2">Contacto</h5>
+        <ul class="space-y-1">
+          <li><a href="#" class="link link-hover">Sitio oficial</a></li>
+          <li><a href="#" class="link link-hover">Contacto</a></li>
+        </ul>
       </div>
     </div>
   </footer>
+
+  <!-- MODAL: Aviso de Privacidad / Cookies -->
+  <dialog id="privacyDialog" class="modal">
+    <div class="modal-box max-w-2xl">
+      <h3 class="font-bold text-lg">Aviso de Privacidad</h3>
+      <p class="py-2 text-sm opacity-80">
+        Este sitio trata datos personales conforme a la normatividad aplicable. Los fines son informativos y estadísticos.
+        Puedes ejercer tus derechos ARCO conforme a los procedimientos institucionales. No utilizamos datos sensibles sin tu consentimiento.
+      </p>
+      <h4 class="font-semibold mt-4">Política de Cookies</h4>
+      <p class="py-2 text-sm opacity-80">
+        Utilizamos cookies esenciales y analíticas para mejorar la experiencia de navegación. Puedes desactivar las no esenciales
+        usando los controles de tu navegador. Al aceptar, almacenamos una cookie de consentimiento por 12 meses.
+      </p>
+      <div class="modal-action">
+        <button class="btn" id="closePrivacy">Cerrar</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  </dialog>
 
   <script>
     /* ====== CONFIG ====== */
     const PDF_URL = "./docs/revista.pdf";   // <-- ruta relativa (GitHub Pages ok)
     const MIN_LOADER_MS = 2000;
-    const AUTO_SPLIT_SPREADS = true;        // <--- clave: partir páginas dobles automáticamente
+    const AUTO_SPLIT_SPREADS = true;        // partir páginas dobles automáticamente
+    const CONSENT_KEY = "dgspConsent_v1";   // cookie/consent version
 
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
@@ -175,9 +292,12 @@
     const $metaWeight = document.getElementById('metaWeight');
     const $btnOpenPdf = document.getElementById('btnOpenPdf');
     const $btnDownloadPdf = document.getElementById('btnDownloadPdf');
-    const $btnDownloadMobile = document.getElementById('btnDownloadMobile'); // <-- NUEVO
+    const $btnDownloadMobile = document.getElementById('btnDownloadMobile');
     const $thumbToggle = document.getElementById('thumbToggle');
     const $sidebar = document.getElementById('sidebar');
+
+    const $cookieBar = document.getElementById('cookieBar');
+    const $privacyDialog = document.getElementById('privacyDialog');
 
     let state = { page: 0, zoom: 1, pagesSrc: [], pageAspect: 1.414 };
     let loaderStart = 0;
@@ -224,7 +344,7 @@
       const sheetW = pageW, sheetH = pageW * state.pageAspect;
       document.documentElement.style.setProperty('--sheet-w', sheetW + 'px');
       document.documentElement.style.setProperty('--sheet-h', sheetH + 'px');
-      $book.style.transform = 'scale(1)'; // vista 1:1, ya ajustada
+      $book.style.transform = 'scale(1)';
     }
     window.addEventListener('resize', fitBook);
 
@@ -278,7 +398,7 @@
       $thumbs.innerHTML='';
       state.pagesSrc.forEach((src,i)=>{
         const btn=document.createElement('button');
-        btn.className='btn btn-ghost p-0 overflow-hidden border border-base-300 hover:border-primary rounded-lg';
+        btn.className='btn btn-ghost p-0 overflow-hidden border border-base-300 hover:border-primary rounded-lg ui-ghost';
         const img=document.createElement('img');
         img.src=src; img.alt=`Miniatura ${i+1}`; img.className='thumb w-[110px] lg:w-full';
         btn.appendChild(img); btn.onclick=()=>{ state.page=i; render(); };
@@ -299,7 +419,6 @@
         ctx.drawImage(canvas, sx, 0, half, canvas.height, 0, 0, half, canvas.height);
         return c.toDataURL('image/jpeg', 0.92);
       };
-      // Orden lectura: izquierda, derecha
       return [ makeHalf(0), makeHalf(half) ];
     }
 
@@ -312,16 +431,15 @@
 
         $btnOpenPdf.href=pdfUrl;
         $btnDownloadPdf.href=pdfUrl;
-        $btnDownloadMobile.href=pdfUrl; // <-- NUEVO: móvil
+        $btnDownloadMobile.href=pdfUrl;
 
         const pages=[];
         for(let p=1;p<=totalPdfPages;p++){
           $status.textContent=`Renderizando página ${p}/${totalPdfPages}…`;
           const page=await pdf.getPage(p);
           const vp=page.getViewport({scale:1});
-          if(p===1) state.pageAspect = (vp.height/vp.width >= 1) ? vp.height/vp.width : 1.414; // default retrato
+          if(p===1) state.pageAspect = (vp.height/vp.width >= 1) ? vp.height/vp.width : 1.414;
 
-          // Render nítido según ancho del contenedor
           const stageW = Math.max(360, $stage.clientWidth || 800);
           const targetW = Math.round(Math.min(2200, Math.max(900, stageW * (window.devicePixelRatio||1.25) * 1.2)));
           const scale=targetW/vp.width;
@@ -332,10 +450,9 @@
           canvas.height=Math.floor(rvp.height);
           await page.render({canvasContext:ctx,viewport:rvp}).promise;
 
-          const isSpread = AUTO_SPLIT_SPREADS && (vp.width > vp.height * 1.1); // apaisada => dos páginas
+          const isSpread = AUTO_SPLIT_SPREADS && (vp.width > vp.height * 1.1);
           if(isSpread){
             const [left,right] = splitCanvasInTwo(canvas);
-            // Para spreads, la relación de una sola hoja es (alto / (ancho/2))
             state.pageAspect = canvas.height / (canvas.width/2);
             pages.push(left, right);
           }else{
@@ -343,7 +460,6 @@
           }
         }
 
-        // Meta (después de partir)
         const bytes=pages.reduce((a,d)=>a+Math.max(0,(d.length*3/4)-8142),0);
         const mb=(bytes/(1024*1024)).toFixed(1);
         document.getElementById('metaPages').textContent = `Páginas: ${pages.length}`;
@@ -357,9 +473,37 @@
       }
     }
 
+    /* ====== CONSENTIMIENTO ====== */
+    function showPrivacyModal(){ try{ $privacyDialog.showModal(); }catch{} }
+    function closePrivacyModal(){ try{ $privacyDialog.close(); }catch{} }
+
+    function initConsent(){
+      const consent = localStorage.getItem(CONSENT_KEY);
+      if(!consent){ $cookieBar.classList.remove('hidden'); }
+
+      document.getElementById('cookieAccept').onclick = ()=>{
+        localStorage.setItem(CONSENT_KEY, JSON.stringify({accepted:true, ts: Date.now()}));
+        $cookieBar.classList.add('hidden');
+      };
+      document.getElementById('cookieDecline').onclick = ()=>{
+        localStorage.setItem(CONSENT_KEY, JSON.stringify({accepted:false, ts: Date.now()}));
+        $cookieBar.classList.add('hidden');
+      };
+
+      // Abrir modal desde varias ligas
+      const openers = ['openPrivacy1','openPrivacy2','openCookies','openCookies2'];
+      openers.forEach(id=>{
+        const el = document.getElementById(id);
+        el?.addEventListener('click',(e)=>{ e.preventDefault(); showPrivacyModal(); });
+      });
+      document.getElementById('closePrivacy').onclick = closePrivacyModal;
+    }
+
     /* ====== INIT ====== */
     async function init(){
       showLoaders();
+      initConsent(); // banner cookies/privacidad
+
       const pages=await pdfToImages(PDF_URL);
       state.pagesSrc=pages;
       buildThumbs();
