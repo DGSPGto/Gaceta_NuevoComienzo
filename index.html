@@ -131,6 +131,14 @@
     </div>
   </main>
 
+  <!-- BOTÓN FLOTANTE MÓVIL: DESCARGAR PDF -->
+  <a id="btnDownloadMobile"
+     class="btn btn-primary md:hidden fixed right-4 bottom-20 shadow-lg z-40"
+     href="#"
+     download>
+     Descargar PDF
+  </a>
+
   <!-- FOOTER -->
   <footer class="footer bg-base-100 text-base-content border-t mt-6">
     <div class="max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -167,6 +175,7 @@
     const $metaWeight = document.getElementById('metaWeight');
     const $btnOpenPdf = document.getElementById('btnOpenPdf');
     const $btnDownloadPdf = document.getElementById('btnDownloadPdf');
+    const $btnDownloadMobile = document.getElementById('btnDownloadMobile'); // <-- NUEVO
     const $thumbToggle = document.getElementById('thumbToggle');
     const $sidebar = document.getElementById('sidebar');
 
@@ -301,7 +310,9 @@
         const pdf=await loadingTask.promise;
         const totalPdfPages=pdf.numPages;
 
-        $btnOpenPdf.href=pdfUrl; $btnDownloadPdf.href=pdfUrl;
+        $btnOpenPdf.href=pdfUrl;
+        $btnDownloadPdf.href=pdfUrl;
+        $btnDownloadMobile.href=pdfUrl; // <-- NUEVO: móvil
 
         const pages=[];
         for(let p=1;p<=totalPdfPages;p++){
